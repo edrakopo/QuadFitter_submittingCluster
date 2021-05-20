@@ -1,0 +1,23 @@
+#To install the software follow the guidelines at:https://www.overleaf.com/project/5b56135e062431287d133d65 changing the following parts:
+#Also change this path: /Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/ with your software path.
+
+#To install cmake:
+  ./bootstrap
+  make
+  make DESTDIR=/Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/cmake-3.18.4/ install
+
+#installing root:
+/Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/cmake-3.18.4/bin/cmake -D minuit2=ON -DPYTHON_EXECUTABLE=/usr/bin/python3 ../root
+/Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/cmake-3.18.4/bin/cmake --build . -- -j2
+source /Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/root_install/bin/thisroot.sh
+
+#installing geant4
+/Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/cmake-3.18.4/bin/cmake -DCMAKE_INSTALL_PREFIX=/Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/geant_install -DGEANT4_USE_SYSTEM_EXPAT=OFF -DGEANT4_BUILD_MULTITHREADED=OFF -DGEANT4_USE_QT=ON -DGEANT4_INSTALL_DATA=ON /Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/geant4
+
+source /Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/geant_install/bin/geant4.sh
+
+#installing ratpac:
+/Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/cmake-3.18.4/bin/cmake . -Bbuild
+/Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/cmake-3.18.4/bin/cmake --build build -- -j2
+#source /Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/rat-pac/ratpac.sh
+source /Disk/ds-sopa-personal/edrakopo/software_WATCHMAN/off_ratpac/rat-pac/ratpac.sh

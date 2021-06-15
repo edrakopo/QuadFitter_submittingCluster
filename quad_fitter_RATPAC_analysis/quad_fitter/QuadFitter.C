@@ -551,7 +551,7 @@ Int_t TimePropertiesLnL(double & vtx_time, double & fom, std::vector<double> fDi
        return 0;
 }
 
-Int_t SelectBestSeed(std::vector<double> fDigitX,std::vector<double> fDigitY,std::vector<double> fDigitZ,std::vector<double> fDigitT,std::vector<double> vSeedVtxX,std::vector<double> vSeedVtxY,std::vector<double> vSeedVtxZ,std::vector<double> vSeedVtxTime)
+Int_t SelectBestSeed(std::vector<double> fDigitX,std::vector<double> fDigitY,std::vector<double> fDigitZ,std::vector<double> fDigitT,std::vector<double> vSeedVtxX,std::vector<double> vSeedVtxY,std::vector<double> vSeedVtxZ,std::vector<double> vSeedVtxTime, double  mc_x, double mc_y, double mc_z)
 {
     Int_t bestSeed = -1;
     Double_t bestFOM = -1.0;
@@ -580,7 +580,7 @@ Int_t SelectBestSeed(std::vector<double> fDigitX,std::vector<double> fDigitY,std
             Double_t time0 = fDigitT[idigit] - 0; //this is what was done in WCSim for the JINST paper
             Double_t time1 = fDigitT[idigit] - vSeedVtxTime[i];
       
-            double dRseed=sqrt((vSeedVtxX[i]*vSeedVtxX[i])+(vSeedVtxY[i]*vSeedVtxY[i])+(vSeedVtxZ[i]*vSeedVtxZ[i]));//valid only if mcx,y,z=0.
+            double dRseed=sqrt(((vSeedVtxX[i]-mc_x)*(vSeedVtxX[i]-mc_x))+((vSeedVtxY[i]-mc_y)*(vSeedVtxY[i]-mc_y))+((vSeedVtxZ[i]-mc_z)*(vSeedVtxZ[i]-mc_z)));
             if(dRseed<dRmin){
                dRmin=dRseed;
                seedRmin=i;
@@ -630,7 +630,7 @@ void QuadFitter(const char* filename_ratpac) {
       ofstream csvfile;
       csvfile.open("seeds.csv");
       
-      TH1D* plot = new TH1D("plot", "plot", 300, 0., 600.);
+      TH1D* plot = new TH1D("plot", "plot", 400, 0., 2000.);
       TH1D* plot_VSeedVtxX= new TH1D("plot_VSeedVtxX", "plot_VSeedVtxX", 1000, -1000., 1000.); //300, 0., 600.);
       TH1D* plot_VSeedVtxY= new TH1D("plot_VSeedVtxY", "plot_VSeedVtxY", 1000, -1000., 1000.); //300, 0., 600.);
       TH1D* plot_VSeedVtxZ= new TH1D("plot_VSeedVtxZ", "plot_VSeedVtxZ", 1000, -1000., 1000.); //300, 0., 600.);
@@ -693,7 +693,7 @@ void QuadFitter(const char* filename_ratpac) {
       float charges[5000], veto_charges[5000];
       float hitpos_x[5000], hitpos_y[5000], hitpos_z[5000];
       Double_t mc_x = 0., mc_y = 0., mc_z = 0., mc_tim = 0., mc_u = 0., mc_v = 0., mc_w = 0.;
-      Int_t mcid = 0, gtid = 0, inner_hit = 0;
+      Int_t mcid = 0, gtid = 0, inner_hit = 0, veto_hit=0;
       Int_t timestamp_ns = 0, timestamp_s = 0, code = 0;
       Double_t totPE = 0.;
       Double_t timestamp=0., mc_energy = 0.; 
@@ -774,9 +774,9 @@ void QuadFitter(const char* filename_ratpac) {
       prim = mc->GetMCParticle(0);
       mc_energy = prim->GetKE();
       temp = prim->GetPosition(); //interaction vertex position
-      mc_x = temp.X();
-      mc_y = temp.Y();
-      mc_z = temp.Z();
+      mc_x = temp.X()*0.1; //converting to cm
+      mc_y = temp.Y()*0.1; //converting to cm
+      mc_z = temp.Z()*0.1; //converting to cm
       mc_tim = prim->GetTime();                   
       //mc_tim = prim->GetTime() - ev->GetDeltaT();  
       //timestamp_s = ev->GetUTC().GetSec();
@@ -812,19 +812,20 @@ void QuadFitter(const char* filename_ratpac) {
           fThisDigit++;
 
            count++;
-        } /*else if (pmtinfo->GetType(id) == vetoPMTcode) {
+        }else if (pmtinfo->GetType(id) == vetoPMTcode) {
           veto_cables[veto_count] = pmt->GetID() + 1;
           veto_times[veto_count] = pmt->GetTime() + offsetT;
           veto_charges[veto_count] = pmt->GetCharge();
           veto_count++;
-        }*/ else
+        }else{
           printf("Unidentified PMT type: (%d,%d) \n", count,
-                 pmtinfo->GetType(id));
+                 pmtinfo->GetType(id));  }
       }  // end of loop over all PMT hits
-      //veto_hit = veto_count;
+      veto_hit = veto_count;
       inner_hit = count;
       nhit = count;
-      cout<<"inner_hits= "<<inner_hit<<endl;
+      cout<<"inner_hits= "<<inner_hit<<" veto_hit= "<<veto_hit<<endl;
+      if(inner_hit>0){
       cout<<"fThisDigit= "<<fThisDigit<<" count= "<<count<<endl;
       std::cout << "vSeedDigitList:" << vSeedDigitList.size() << std::endl;
       if(vSeedDigitList.size()==0) return -1;
@@ -837,9 +838,10 @@ void QuadFitter(const char* filename_ratpac) {
       VSeedVtxY = GetSeedVtx(vSeeds,1);
       VSeedVtxZ = GetSeedVtx(vSeeds,2);
       VSeedVtxTime = GetSeedVtx(vSeeds,3);
-      
+     
+     if(vSeedVtxX.size()){ 
      //now find the best vertex
-     int best_seed = SelectBestSeed(fDigitX,fDigitY,fDigitZ,fDigitT,VSeedVtxX,VSeedVtxY,VSeedVtxZ,VSeedVtxTime);
+     int best_seed = SelectBestSeed(fDigitX,fDigitY,fDigitZ,fDigitT,VSeedVtxX,VSeedVtxY,VSeedVtxZ,VSeedVtxTime,mc_x,mc_y,mc_z);
      std::cout<<"best_seed = "<<best_seed<<"  vSeedVtxX.size() = "<<vSeedVtxX.size()<<std::endl;
 
      //check fdigits_plots
@@ -854,10 +856,11 @@ void QuadFitter(const char* filename_ratpac) {
      }
 
      //filling the csvfile:
-     csvfile<<inner_hit<<",";
      csvfile<<mc_x<<",";
      csvfile<<mc_y<<",";
      csvfile<<mc_z<<",";
+     csvfile<<inner_hit<<",";
+     csvfile<<best_seed<<",";
      csvfile<<VSeedVtxX.size()<<",";
      for(int i=0; i<vSeedVtxX.size(); i++)
      {  csvfile<<VSeedVtxX[i]<<",";      
@@ -888,6 +891,8 @@ void QuadFitter(const char* filename_ratpac) {
      cout<<"recoVtxX= "<<recoVtxX<<" recoVtxY= "<<recoVtxY<<" recoVtxZ= "<<recoVtxZ<<" recoVtxTime= "<<recoVtxTime<<endl; 
      cout<<"dR= "<<sqrt((recoVtxX-mc_x)*(recoVtxX-mc_x) + (recoVtxY-mc_y)*(recoVtxY-mc_y) + (recoVtxZ-mc_z)*(recoVtxZ-mc_z))<<endl;
      plot->Fill(sqrt((recoVtxX-mc_x)*(recoVtxX-mc_x) + (recoVtxY-mc_y)*(recoVtxY-mc_y) + (recoVtxZ-mc_z)*(recoVtxZ-mc_z)));
+     }
+    }
    }
   }//closes the event loop              
 
